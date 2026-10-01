@@ -2,19 +2,36 @@
 
 Application statique en HTML, CSS et JavaScript. Ouvrez le dossier dans VS Code, puis faites **Open with Live Server** sur `index.html`. Aucune installation npm n'est nécessaire pour le site.
 
+## Organisation des fichiers
+
+```text
+index.html                 Page d'entrée pour Live Server et GitHub Pages
+config.js                  Configuration locale du site
+config.example.js          Exemple des paramètres à renseigner
+assets/css/style.css       Styles de l'interface
+assets/js/script.js        Caméra, reconnaissance, compte, herbier et carte
+assets/js/encounter3d.js  Rencontre avec le berger 3D et WebXR
+data/plantes.js           Catalogue du mode démo
+images/                   Illustrations et modèle berger.glb
+database/supabase-setup.sql  Schéma et données Supabase
+worker/index.js           API Cloudflare protégeant les clés privées
+```
+
+Les chemins restent relatifs à `index.html` pour fonctionner aussi dans un sous-dossier GitHub Pages. Conservez `images/berger.glb` à cet emplacement : la rencontre 3D le charge depuis la racine du site.
+
 ## Essai immédiat
 
-`config.js` est vide par défaut. Au premier écran, choisissez **Essayer le mode démo**, puis **Scanner**. Autorisez la caméra, cadrez une plante et touchez **Identifier la plante**. La reconnaissance simulée ouvre une rencontre : la vidéo continue derrière le berger 3D. Faites glisser le berger pour le tourner, réglez sa distance, posez une question ou utilisez la voix. **Photographier et enregistrer** prend alors le cliché final et ajoute la découverte à l'herbier et à la carte si un point GPS est disponible. **Quitter** ferme la rencontre sans enregistrer. Si la caméra en direct est indisponible, importez une image ou utilisez la caméra native ; la rencontre affiche alors la photo fixe. Le mode démo utilise `localStorage` et ne communique pas avec Supabase.
+Si Supabase n'est pas configuré, choisissez **Essayer le mode démo**, puis **Scanner**. Sélectionnez explicitement une plante de démonstration, autorisez la caméra, cadrez la plante et utilisez le bouton circulaire. La reconnaissance simulée ouvre une rencontre : la vidéo continue derrière le berger 3D. Faites glisser le berger pour le tourner, posez une question ou utilisez la voix. **Photographier et enregistrer** prend alors le cliché final et ajoute la découverte à l'herbier et à la carte si un point GPS est disponible. **Quitter** ferme la rencontre sans enregistrer. Si la caméra en direct est indisponible, importez une image ou utilisez la caméra native ; la rencontre affiche alors la photo fixe. Le mode démo utilise `localStorage` et ne communique pas avec Supabase.
 
-Le personnage est rendu par Three.js depuis `images/berger.glb`, avec un canvas transparent sur la vidéo. Three.js est chargé par CDN et import map, sans npm. Le modèle pèse environ 39 Mo et se charge après l'identification ; `berger.svg` apparaît si le chargement échoue. Sur les appareils compatibles, **Ancrage AR** ouvre WebXR : visez le sol et touchez l'écran pour placer le berger. Si le suivi de surface ou les ancres ne sont pas disponibles, WebXR garde une position locale ; sans WebXR, le placement visuel permet de tourner et rapprocher le personnage, sans suivi physique de la plante.
+Le personnage est rendu par Three.js depuis `images/berger.glb`, avec un canvas transparent sur la vidéo. Three.js est chargé par CDN et import map, sans npm. Le modèle pèse environ 39 Mo et se charge après l'identification ; `berger.svg` apparaît si le chargement échoue. Sur les appareils compatibles, **Activer AR** ouvre WebXR : l'application cherche automatiquement une surface horizontale stable, puis place le berger sans toucher l'écran. Elle utilise une ancre XR si disponible, sinon une pose fixe dans l'espace WebXR. Sans WebXR, le berger reste une superposition 3D stable, sans ancrage dans le monde réel.
 
 ## Activer Supabase
 
 1. Créez un projet sur [Supabase](https://supabase.com/dashboard).
-2. Dans **SQL Editor**, collez et exécutez le contenu entier de `supabase-setup.sql`. Il crée `profiles`, `plants`, `discoveries`, les politiques RLS et le bucket privé `plant-photos`.
+2. Dans **SQL Editor**, collez et exécutez le contenu entier de `database/supabase-setup.sql`. Il crée `profiles`, `plants`, `discoveries`, les politiques RLS et le bucket privé `plant-photos`.
 3. Dans **Project Settings → API Keys**, relevez l'URL du projet et sa clé **publishable** ou `anon`. N'utilisez jamais `service_role` dans le navigateur ou dans ce dépôt.
 4. Dans **Authentication → URL Configuration**, ajoutez l'URL exacte de Live Server à **Redirect URLs** (par exemple `http://127.0.0.1:5500/index.html`). Ajoutez plus tard l'URL GitHub Pages. Vérifiez aussi le **Site URL**. Par défaut, Supabase peut demander de confirmer l'adresse e-mail.
-5. Renseignez `supabaseUrl` et `supabaseAnonKey` dans `config.js`. Ce fichier est ignoré par Git. `config.example.js` montre seulement les noms des paramètres.
+5. Renseignez `supabaseUrl` et `supabaseAnonKey` dans `config.js`. Ce fichier est actuellement versionné : n'y mettez que la clé publique publishable/anon et l'URL du Worker. `config.example.js` montre seulement les noms des paramètres.
 
 Le compte et la session sont gérés par Supabase Auth. Les données des comptes sont isolées par les politiques RLS. Les photos sont dans un bucket privé ; l'application récupère une URL signée temporaire pour les afficher.
 
@@ -46,6 +63,6 @@ Le Worker vérifie le jeton Supabase de chaque requête, protège la clé Pl@ntN
 2. Identifiez une des **quatre espèces du catalogue** sans quitter la caméra. Autorisez la localisation si vous voulez un marqueur. Vérifiez la rencontre, puis touchez **Photographier et enregistrer** et contrôlez l'herbier et la carte.
 3. Déconnectez-vous, créez un compte B et vérifiez que la découverte A n'apparaît pas. Créez une découverte B, puis reconnectez A et vérifiez que seul son herbier revient.
 4. Pour vérifier la RLS côté base, lancez dans **SQL Editor** une requête avec un jeton utilisateur limité ou utilisez deux sessions navigateur distinctes ; une session B ne doit pas pouvoir lire les lignes ou objets de A.
-5. Testez une photo d'une plante hors des quatre entrées : elle doit afficher « présence en Corse non vérifiée » et ne doit pas créer de carte.
+5. Testez une photo d'une plante hors du catalogue : elle doit afficher « Cette plante n’est pas encore répertoriée dans le catalogue corse. » et ne doit pas créer de carte.
 
-La reconnaissance réelle exige une clé Pl@ntNet. La transcription, le classement IA et la voix générée exigent une clé OpenAI. Le GPS, la caméra en direct, le microphone et WebXR demandent un contexte sécurisé : `localhost` fonctionne en local ; sur un téléphone via l'adresse IP du PC, utilisez HTTPS. GitHub Pages fournit HTTPS. WebXR AR dépend aussi du navigateur et du téléphone ; il ne peut pas être vérifié sur un ordinateur classique. Pour publier `config.js` tout en le gardant hors de Git, générez-le dans l'étape de publication de votre futur workflow ou déposez-le séparément avec les fichiers statiques. La clé Supabase publishable est publique, mais les clés Pl@ntNet et OpenAI doivent rester uniquement dans le Worker.
+La reconnaissance réelle exige une clé Pl@ntNet. La transcription, le classement IA et la voix générée exigent une clé OpenAI. Le GPS, la caméra en direct, le microphone et WebXR demandent un contexte sécurisé : `localhost` fonctionne en local ; sur un téléphone via l'adresse IP du PC, utilisez HTTPS. GitHub Pages fournit HTTPS. WebXR AR dépend aussi du navigateur et du téléphone ; il ne peut pas être vérifié sur un ordinateur classique. La clé Supabase publishable est publique, mais les clés Pl@ntNet et OpenAI doivent rester uniquement dans le Worker.

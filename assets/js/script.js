@@ -4,7 +4,6 @@
   const cfg = window.MAQUIS_CONFIG || {};
   const demoKey = 'maquis.decouvertes.v1';
   const bucket = 'plant-photos';
-  const demoIds = ['immortelle', 'nepita', 'myrte', 'arbousier'];
   const questions = { caracteristiques: 'Caractéristiques', floraison: 'Floraison', recette: 'Recette', toxicite: 'Toxicité', legende: 'Légende' };
   const el = id => document.getElementById(id);
   const views = { scanner: el('view-scanner'), plantes: el('view-plantes'), carte: el('view-carte') };
@@ -12,7 +11,7 @@
   const db = cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   let mode = null, user = null, discoveries = [], photo = null, current = null, activeDialog = null;
   let map = null, markers = null, audioPlayer = null, recorder = null, stream = null, chunks = [];
-  let demoIndex = 0, authTab = 'login', scanToken = 0, voiceReady = false;
+  let authTab = 'login', scanToken = 0, voiceReady = false, scanInProgress = false, photoPreparationInProgress = false;
   let cameraStream = null, encounter3d = null, encounterSequence = 0, saveInProgress = false;
 
   // Le flux vidéo reste ouvert pendant l'analyse ET pendant la rencontre.
@@ -20,7 +19,7 @@
     if (cameraStream) return;
     const token = scanToken;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      el('scan-error').textContent = 'Caméra en direct indisponible ici. Utilisez une photo ou ouvrez le site en HTTPS.';
+      scanError('Caméra en direct indisponible ici. Utilisez une photo ou ouvrez le site en HTTPS.');
       return;
     }
     el('take-photo').disabled = true;
@@ -33,10 +32,10 @@
       await video.play();
       el('scanner-live').hidden = false;
       el('take-photo').hidden = true;
-      el('scan-error').textContent = '';
+      el('scan-error').textContent = ''; el('scan-error-card').hidden = true;
     } catch (_) {
       if (cameraStream) stopCamera();
-      el('scan-error').textContent = 'Caméra refusée ou indisponible. Importez une photo, ou utilisez la caméra native.';
+      if (token === scanToken && !photo && !scanDialog.hidden) scanError('Caméra refusée ou indisponible. Importez une photo, ou utilisez la caméra native.');
       el('take-photo').querySelector('strong').textContent = 'Caméra native';
     } finally { el('take-photo').disabled = false; }
   }
@@ -50,16 +49,33 @@
   }
   function captureLivePhoto() {
     const video = el('encounter-video').srcObject ? el('encounter-video') : el('scanner-video');
-    if (!cameraStream || !video.videoWidth) return Promise.reject(new Error('Image vidéo indisponible.'));
+    if (!cameraStream || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+        !video.videoWidth || !video.videoHeight || Math.min(video.videoWidth, video.videoHeight) < 240) {
+      return Promise.reject(new Error('Image vidéo incomplète. Attendez un instant et réessayez.'));
+    }
     const ratio = Math.min(1, 1200 / Math.max(video.videoWidth, video.videoHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(video.videoWidth * ratio);
     canvas.height = Math.round(video.videoHeight * ratio);
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const context = canvas.getContext('2d');
+    if (!context) return Promise.reject(new Error('Capture impossible.'));
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    if (!hasUsablePixels(context, canvas.width, canvas.height)) return Promise.reject(new Error('Image trop sombre ou vide. Cadrez la plante et réessayez.'));
     return new Promise((resolve, reject) => canvas.toBlob(blob => {
-      if (blob) resolve({ blob, dataUrl: canvas.toDataURL('image/jpeg', 0.78) });
+      if (blob) resolve({ blob, dataUrl: canvas.toDataURL('image/jpeg', 0.9) });
       else reject(new Error('Capture impossible.'));
-    }, 'image/jpeg', 0.78));
+    }, 'image/jpeg', 0.9));
+  }
+  // Un échantillon presque entièrement noir indique souvent une trame non prête.
+  function hasUsablePixels(context, width, height) {
+    const sample = document.createElement('canvas'); sample.width = 24; sample.height = 24;
+    const sampled = sample.getContext('2d');
+    if (!sampled) return false;
+    sampled.drawImage(context.canvas, 0, 0, width, height, 0, 0, 24, 24);
+    const pixels = sampled.getImageData(0, 0, 24, 24).data;
+    let dark = 0;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] + pixels[i + 1] + pixels[i + 2] < 24) dark++;
+    return dark < 550;
   }
   function showBergerFallback() {
     el('berger-loading').hidden = true;
@@ -79,12 +95,11 @@
           container: el('encounter-canvas'), overlay: resultDialog,
           onStatus: message => {
             el('encounter-mode').textContent = message;
-            el('encounter-ar').textContent = encounter3d && encounter3d.isAR ? 'Quitter AR' : 'Ancrage AR';
+            el('encounter-ar').textContent = encounter3d && encounter3d.isAR ? 'Quitter AR' : 'Activer AR';
           }
         });
       }
       if (sequence !== encounterSequence || resultDialog.hidden) return;
-      encounter3d.setDistance(el('encounter-distance').value);
       await encounter3d.start();
       if (sequence !== encounterSequence || resultDialog.hidden) return;
       clearTimeout(timeout);
@@ -111,6 +126,7 @@
   function openDialog(dialog) {
     if (activeDialog) activeDialog.hidden = true;
     activeDialog = dialog; dialog.hidden = false; document.body.style.overflow = 'hidden';
+    document.body.classList.toggle('is-immersive', dialog === scanDialog || dialog === resultDialog);
     const first = dialog.querySelector('button'); if (first) first.focus();
   }
   function closeDialog(dialog) {
@@ -126,6 +142,7 @@
     }
     dialog.hidden = true; if (activeDialog === dialog) activeDialog = null;
     document.body.style.overflow = '';
+    document.body.classList.remove('is-immersive');
   }
   function openScanner() {
     if (!mode) { openDialog(authDialog); return; }
@@ -133,7 +150,8 @@
     if (activeDialog) closeDialog(activeDialog);
     showView('scanner'); photo = null;
     el('photo-preview').removeAttribute('src'); el('preview-area').hidden = true;
-    el('scan-progress').hidden = true; el('retry-button').hidden = true; el('scan-error').textContent = '';
+    el('scan-progress').hidden = true; el('retry-button').hidden = true; el('scan-error').textContent = ''; el('scan-error-card').hidden = true;
+    el('demo-choice').hidden = mode !== 'demo'; el('demo-plant').value = '';
     el('camera-input').value = ''; el('gallery-input').value = '';
     openDialog(scanDialog);
     startCamera();
@@ -223,6 +241,7 @@
       el('photo-preview').src = url; el('preview-area').hidden = false;
       const image = new Image();
       image.onload = () => {
+        if (Math.min(image.width, image.height) < 240) { URL.revokeObjectURL(url); reject(new Error('Photo trop petite ou incomplète. Choisissez une autre image.')); return; }
         const ratio = Math.min(1, 1200 / Math.max(image.width, image.height));
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(image.width * ratio));
@@ -230,6 +249,7 @@
         const context = canvas.getContext('2d');
         if (!context) { URL.revokeObjectURL(url); reject(new Error('Photo illisible.')); return; }
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        if (!hasUsablePixels(context, canvas.width, canvas.height)) { URL.revokeObjectURL(url); reject(new Error('Image trop sombre ou vide. Choisissez une autre photo.')); return; }
         canvas.toBlob(blob => {
           URL.revokeObjectURL(url);
           if (!blob) { reject(new Error('Compression de la photo impossible.')); return; }
@@ -237,7 +257,7 @@
           reader.onload = () => resolve({ blob, dataUrl: reader.result });
           reader.onerror = () => reject(new Error('Lecture de la photo impossible.'));
           reader.readAsDataURL(blob);
-        }, 'image/jpeg', 0.78);
+        }, 'image/jpeg', 0.9);
       };
       image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible.')); };
       image.src = url;
@@ -245,24 +265,30 @@
   }
   async function handlePhoto(event) {
     const file = event.target.files && event.target.files[0]; if (!file) return;
+    if (scanInProgress || photoPreparationInProgress) return;
+    photoPreparationInProgress = true; photo = null;
     const token = ++scanToken;
-    el('scan-error').textContent = ''; el('retry-button').hidden = true;
+    el('scan-error').textContent = ''; el('scan-error-card').hidden = true; el('retry-button').hidden = true;
     try {
       const preparation = preparePhoto(file); // L'aperçu est posé avant le travail asynchrone.
-      scanStatus('Analyse de la plante en cours…');
+      scanStatus('Préparation de la photo…');
       const ready = await preparation;
       if (token !== scanToken) return;
       photo = ready; el('photo-preview').src = ready.dataUrl;
+      photoPreparationInProgress = false;
       await analyzePhoto(token);
     } catch (error) { if (token === scanToken) scanError(error.message); }
+    finally { photoPreparationInProgress = false; }
   }
   function scanError(message) {
     el('scan-progress').hidden = true; el('scan-error').textContent = message;
-    el('retry-button').hidden = !photo;
+    el('scan-error-card').hidden = false;
+    el('retry-button').hidden = !cameraStream && !photo;
   }
   function scanStatus(message) {
     el('scan-status').textContent = message;
     el('scan-progress').hidden = false;
+    el('scan-error-card').hidden = true;
   }
   function getPosition() {
     return new Promise(resolve => {
@@ -293,8 +319,11 @@
   async function identifierPlante(blob) {
     if (!blob) throw new Error('Aucune photo à analyser.');
     if (mode === 'demo') {
-      const id = demoIds[demoIndex++ % demoIds.length];
-      return { demo: true, plantId: id, scientificName: window.PLANTES[id].latin, commonName: window.PLANTES[id].nom, score: null };
+      const id = el('demo-plant').value;
+      if (!id || !window.PLANTES[id]) throw new Error('En mode démo, choisissez une plante pour simuler la reconnaissance.');
+      return { demo: true, recognized: true, plantId: id, scientificName: window.PLANTES[id].latin,
+        commonName: window.PLANTES[id].nom, score: null, bestMatch: window.PLANTES[id].latin,
+        results: [{ species: { scientificNameWithoutAuthor: window.PLANTES[id].latin }, score: null }] };
     }
     const form = new FormData(); form.append('image', blob, 'plante.jpg');
     return (await workerRequest('/identify', form, true)).json();
@@ -302,31 +331,49 @@
   window.identifierPlante = identifierPlante;
 
   async function analyzePhoto(token) {
-    if (!photo) return;
+    if (!photo || scanInProgress) return;
+    scanInProgress = true;
     token = token || ++scanToken;
     const originalMode = mode, uid = user && user.id;
-    el('retry-button').hidden = true; el('scan-error').textContent = '';
+    el('retry-button').hidden = true; el('scan-error').textContent = ''; el('scan-error-card').hidden = true;
     try {
-      scanStatus('Recherche de votre position…');
-      const position = await getPosition();
-      if (token !== scanToken || mode !== originalMode || (mode === 'account' && user.id !== uid)) return;
-      scanStatus('Analyse de la plante en cours…');
+      scanStatus('Analyse de la plante…');
       const found = await identifierPlante(photo.blob);
-      if (token !== scanToken || mode !== originalMode || (mode === 'account' && user.id !== uid)) return;
+      if (token !== scanToken || mode !== originalMode || (mode === 'account' && (!user || user.id !== uid))) return;
+      console.info('[Pl@ntNet] Résultat', { scientificName: found.scientificName || null, score: found.score ?? null,
+        recognized: found.recognized, bestMatch: found.bestMatch || null });
+      if (found.recognized === false || !found.bestMatch || !Array.isArray(found.results) || !found.results.length) {
+        console.info('[Pl@ntNet] Rejet : aucune plante détectée');
+        throw new Error('Aucune plante reconnue. Rapprochez-vous et cadrez une feuille ou une fleur.');
+      }
       if (mode === 'demo') {
+        scanStatus('Recherche de votre position…');
+        const position = await getPosition();
+        if (token !== scanToken) return;
         const row = { id: crypto.randomUUID(), plantId: found.plantId, plant: localPlant(found.plantId),
           photoUrl: photo.dataUrl, date: new Date().toISOString(), position, score: null, demo: true };
         showResult(row, 'Prenez la photo pour ajouter cette plante à votre herbier.');
         return;
       }
-      if (found.score < 0.30) throw new Error('Identification trop incertaine. Prenez une photo plus nette.');
-      const match = await db.from('plants').select('*').eq('scientific_name', found.scientificName).maybeSingle();
+      const best = found.results[0];
+      const score = Number(best && best.score);
+      const scientificName = String(best && best.species && (best.species.scientificNameWithoutAuthor || best.species.scientificName) || '').trim();
+      if (!scientificName || !Number.isFinite(score) || score < 0.30) {
+        console.info('[Pl@ntNet] Rejet : nom ou score insuffisant', { scientificName, score });
+        throw new Error('Aucune plante reconnue. Rapprochez-vous et cadrez une feuille ou une fleur.');
+      }
+      const match = await db.from('plants').select('*').eq('scientific_name', scientificName).maybeSingle();
       if (match.error) throw new Error('Catalogue corse indisponible : ' + match.error.message);
-      if (!match.data) throw new Error('Plante identifiée : ' + found.scientificName + '. Présence en Corse non vérifiée dans le catalogue : aucune carte enregistrée.');
+      console.info('[Catalogue corse] Correspondance', { scientificName, found: Boolean(match.data), name: match.data && match.data.common_name });
+      if (!match.data) throw new Error('Cette plante n’est pas encore répertoriée dans le catalogue corse.');
+      scanStatus('Recherche de votre position…');
+      const position = await getPosition();
+      if (token !== scanToken || mode !== 'account' || !user || user.id !== uid) return;
       const row = { id: crypto.randomUUID(), plant: match.data, photoUrl: photo.dataUrl,
-        date: new Date().toISOString(), position, score: found.score, pending: true };
+        date: new Date().toISOString(), position, score, pending: true };
       showResult(row, 'Prenez la photo pour enregistrer la découverte.');
     } catch (error) { if (token === scanToken) scanError(error.message || 'Analyse impossible.'); }
+    finally { scanInProgress = false; }
   }
 
   async function saveEncounter() {
@@ -412,7 +459,7 @@
     });
     openDialog(resultDialog);
     el('encounter-error').textContent = '';
-    el('encounter-mode').textContent = 'Placement visuel';
+    el('encounter-mode').textContent = 'Superposition 3D · sans ancrage réel';
     el('encounter-ar').hidden = true;
     el('save-encounter').disabled = false;
     const encounterVideo = el('encounter-video');
@@ -570,7 +617,9 @@
   el('import-photo').addEventListener('click', () => el('gallery-input').click());
   el('camera-input').addEventListener('change', handlePhoto);
   el('gallery-input').addEventListener('change', handlePhoto);
-  el('identify-live').addEventListener('click', async () => {
+  async function captureAndAnalyze() {
+    if (scanInProgress || photoPreparationInProgress) return;
+    photoPreparationInProgress = true;
     const token = ++scanToken;
     const button = el('identify-live');
     button.disabled = true;
@@ -579,16 +628,18 @@
       if (token !== scanToken) return;
       el('photo-preview').src = photo.dataUrl;
       el('preview-area').hidden = false;
+      photoPreparationInProgress = false;
       await analyzePhoto(token);
     } catch (error) { if (token === scanToken) scanError(error.message || 'Capture impossible.'); }
-    finally { button.disabled = false; }
+    finally { photoPreparationInProgress = false; button.disabled = false; }
+  }
+  el('identify-live').addEventListener('click', captureAndAnalyze);
+  el('retry-button').addEventListener('click', () => {
+    if (cameraStream) captureAndAnalyze();
+    else if (photo) analyzePhoto();
   });
-  el('retry-button').addEventListener('click', () => analyzePhoto());
   el('save-encounter').addEventListener('click', saveEncounter);
   el('exit-encounter').addEventListener('click', () => closeDialog(resultDialog));
-  el('encounter-distance').addEventListener('input', event => {
-    if (encounter3d) encounter3d.setDistance(event.target.value);
-  });
   el('encounter-ar').addEventListener('click', async () => {
     try {
       if (encounter3d.isAR) await encounter3d.stopAR();

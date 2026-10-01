@@ -7,7 +7,7 @@
   <meta name="description" content="Découvrez les plantes de Corse, gardez vos trouvailles et retrouvez-les sur la carte.">
   <title>Maquis — Les plantes de Corse</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="assets/css/style.css">
   <script type="importmap">
     {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
   </script>
@@ -103,20 +103,23 @@
 
   <div id="scan-dialog" class="dialog-backdrop" hidden>
     <section class="dialog scan-dialog" role="dialog" aria-modal="true" aria-labelledby="scan-dialog-title">
-      <button class="icon-close" type="button" data-close aria-label="Fermer">×</button>
-      <p class="eyebrow">NOUVELLE DÉCOUVERTE</p><h2 id="scan-dialog-title">Une plante <em>à rencontrer.</em></h2>
-      <p>Photographiez une plante ou choisissez une image depuis votre appareil.</p>
+      <header class="scanner-header"><button class="scanner-back" type="button" data-close aria-label="Retour">←</button><div><p class="eyebrow">NOUVELLE DÉCOUVERTE</p><h2 id="scan-dialog-title">Scanner une plante</h2></div></header>
+      <div class="scanner-idle" aria-hidden="true"><svg viewBox="0 0 80 80"><path d="M64 14C31 15 17 31 18 51a20 20 0 0 0 20 18c21 0 29-17 26-55ZM15 67c11-16 24-28 39-37"/></svg><span>Le maquis à portée de regard</span></div>
       <div id="scanner-live" class="scanner-live" hidden>
         <video id="scanner-video" autoplay muted playsinline aria-label="Vue en direct de la caméra"></video>
-        <div class="scanner-sight" aria-hidden="true"></div>
-        <p class="scanner-hint">Cadrez la plante, puis lancez l'identification.</p>
-        <button id="identify-live" class="button button-primary" type="button">Identifier la plante</button>
+        <div class="scanner-sight" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <p class="scanner-hint">Placez une feuille ou une fleur dans le cadre</p>
+        <button id="identify-live" class="scanner-shutter" type="button" aria-label="Prendre la photo et identifier la plante"><span></span></button>
       </div>
-      <div class="upload-actions"><button id="take-photo" class="upload-choice" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4V7Zm8 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg><strong>Activer la caméra</strong><span>Flux vidéo en direct</span></button><button id="import-photo" class="upload-choice" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4Zm3 12 4-4 3 3 2-2 3 3M8 9h.01"/></svg><strong>Importer une image</strong><span>Ouvrir la galerie</span></button></div>
+      <div class="scanner-bottom"><p class="scanner-intro">Photographiez une plante ou choisissez une image depuis votre appareil.</p>
+        <label id="demo-choice" class="demo-choice" for="demo-plant" hidden>Mode démo · plante simulée<select id="demo-plant"><option value="">Choisir une plante</option><option value="immortelle">Immortelle</option><option value="nepita">Nepita</option><option value="myrte">Myrte</option><option value="arbousier">Arbousier</option></select></label>
+        <div class="upload-actions"><button id="take-photo" class="upload-choice" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4V7Zm8 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg><strong>Activer la caméra</strong><span>Flux vidéo en direct</span></button><button id="import-photo" class="upload-choice" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4Zm3 12 4-4 3 3 2-2 3 3M8 9h.01"/></svg><strong>Importer une image</strong><span>Ouvrir la galerie</span></button></div>
       <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
       <input id="gallery-input" type="file" accept="image/*" hidden>
-      <div id="preview-area" class="preview-area" hidden><img id="photo-preview" alt="Aperçu de votre photo"><div class="preview-controls"><span class="preview-label">Votre photo</span><p>Cette photo sera conservée sur votre carte de découverte.</p><div id="scan-progress" class="scan-progress" hidden><span class="spinner" aria-hidden="true"></span><span id="scan-status">Analyse de la plante en cours…</span></div><button id="retry-button" class="button button-outline" type="button" hidden>Réessayer l’analyse</button></div></div>
-      <p id="scan-error" class="form-message" role="alert"></p>
+      <div id="preview-area" class="preview-area" hidden><img id="photo-preview" alt="Aperçu de votre photo"><div class="preview-controls"><span class="preview-label">Votre photo</span><p>Cette photo sera conservée sur votre carte de découverte après validation.</p></div></div>
+      <div id="scan-progress" class="scan-progress" role="status" hidden><span class="spinner" aria-hidden="true"></span><span id="scan-status">Analyse de la plante…</span></div>
+      <div id="scan-error-card" class="scan-error-card" hidden><p id="scan-error" class="form-message" role="alert"></p><button id="retry-button" class="button button-outline" type="button" hidden>Réessayer</button></div>
+      </div>
     </section>
   </div>
 
@@ -136,7 +139,8 @@
       <div class="encounter-hud">
         <div class="encounter-top"><span class="encounter-kicker">✳ RENCONTRE DANS LE MAQUIS</span><button id="exit-encounter" class="encounter-close" type="button">Quitter <span aria-hidden="true">×</span></button></div>
         <div class="encounter-caption"><span id="encounter-mode">Placement visuel</span><span>Glissez sur le berger pour le tourner</span></div>
-        <div class="encounter-controls"><label for="encounter-distance">Distance</label><input id="encounter-distance" type="range" min="2" max="4.5" step="0.1" value="3" aria-label="Distance visuelle du berger"><button id="encounter-ar" type="button" hidden>Ancrage AR</button></div>
+        <div class="encounter-spacer" aria-hidden="true"></div>
+        <button id="encounter-ar" class="encounter-ar-button" type="button" hidden>Activer AR</button>
         <div class="encounter-panel">
           <div class="encounter-plant"><img id="result-photo" alt="Photo de la plante identifiée"><div><span id="result-confidence" class="result-confidence"></span><h2 id="result-title"></h2><p id="result-latin" class="latin-name"></p><p id="result-summary"></p><small id="result-location"></small><time id="result-date" hidden></time></div></div>
           <div class="guide-content"><p class="guide-label">LE BERGER VOUS RACONTE</p><p id="guide-text" aria-live="polite"></p><button id="replay-speech" class="replay-button" type="button">🔊 Réécouter</button></div>
@@ -165,6 +169,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js" onerror="window.MAQUIS_CONFIG_MISSING=true"></script>
   <script src="data/plantes.js"></script>
-  <script src="script.js"></script>
+  <script src="assets/js/script.js"></script>
 </body>
 </html>
