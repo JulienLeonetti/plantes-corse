@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f5ee">
+  <meta name="description" content="Découvrez les plantes de Corse, gardez vos trouvailles et retrouvez-les sur la carte.">
+  <title>Maquis — Les plantes de Corse</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="site-header">
+      <a class="brand" href="#scanner" aria-label="Maquis, accueil">
+        <span class="brand-mark" aria-hidden="true">✳</span>
+        <span>maquis<span class="brand-dot">.</span></span>
+      </a>
+      <button id="account-button" class="account-button" type="button">Mon compte</button>
+    </header>
+
+    <main>
+      <section id="view-scanner" class="view" aria-labelledby="scanner-title">
+        <div class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-line"></span> LE MAQUIS À PORTÉE DE MAIN</p>
+            <h1 id="scanner-title">Chaque plante<br>a <em>son histoire.</em></h1>
+            <p class="hero-description">Une promenade en Corse devient un carnet de découvertes. Photographiez une plante et laissez-vous guider.</p>
+            <div class="hero-actions">
+              <button class="button button-primary" id="hero-scan" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V6a2 2 0 0 1 2-2h3m6 0h3a2 2 0 0 1 2 2v3M4 15v3a2 2 0 0 0 2 2h3m6 0h3a2 2 0 0 0 2-2v-3M8 12h8"/></svg>
+                Découvrir une plante
+              </button>
+              <span class="hero-note">CAMÉRA OU GALERIE</span>
+            </div>
+          </div>
+          <div class="hero-art" role="img" aria-label="Illustration de branches d'immortelle dans le maquis corse">
+            <div class="hero-art-sun"></div>
+            <div class="hero-art-hill hill-back"></div>
+            <div class="hero-art-hill hill-front"></div>
+            <img src="images/immortelle.svg" alt="">
+            <span class="art-label">01 / LE MAQUIS CORSE</span>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div><p class="eyebrow">VOTRE COMPAGNON DE ROUTE</p><h2>Le maquis se raconte.</h2></div>
+          <span class="section-index">01 — 03</span>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card feature-card-guide">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-4.8 0-8 3.6-8 8 0 5 4 8 8 10 4-2 8-5 8-10 0-4.4-3.2-8-8-8Zm0 4v8m-3-3 3 3 3-3"/></svg></div>
+            <span class="feature-number">01</span>
+            <h3>Regardez de plus près</h3>
+            <p>Une photo suffit pour commencer à explorer les plantes du maquis.</p>
+          </article>
+          <article class="feature-card feature-card-voice">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9v6m4-9v12m4-15v18m4-15v12m4-9v6"/></svg></div>
+            <span class="feature-number">02</span>
+            <h3>Écoutez le berger</h3>
+            <p>Caractéristiques, floraison ou légendes : choisissez ce qui vous intrigue.</p>
+          </article>
+          <article class="feature-card feature-card-memory">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg></div>
+            <span class="feature-number">03</span>
+            <h3>Gardez une trace</h3>
+            <p>Votre photo, votre lieu, votre histoire : chaque rencontre rejoint l'herbier.</p>
+          </article>
+        </div>
+
+        <div class="discovery-strip">
+          <span class="strip-symbol" aria-hidden="true">✳</span>
+          <div><strong>La nature se découvre à son rythme.</strong><span id="mode-description">Connectez-vous pour enregistrer vos découvertes, ou essayez le mode démo.</span></div>
+          <button class="text-link" type="button" data-view="plantes">Voir l'herbier <span aria-hidden="true">↗</span></button>
+        </div>
+      </section>
+
+      <section id="view-plantes" class="view" hidden aria-labelledby="plantes-title">
+        <div class="page-intro"><p class="eyebrow">VOTRE CARNET DE NATURE</p><h1 id="plantes-title">Mon <em>herbier.</em></h1><p id="inventory-subtitle">Vos découvertes personnelles.</p></div>
+        <div class="inventory-toolbar"><span id="inventory-count">0 découverte</span><button class="button button-outline button-small" type="button" data-view="scanner">+ Découvrir</button></div>
+        <div id="inventory-list" class="inventory-grid"></div>
+        <div id="inventory-empty" class="empty-state" hidden><span aria-hidden="true">✳</span><h2>Votre herbier attend sa première plante.</h2><p>Prenez une photo pour commencer votre collection corse.</p><button class="button button-primary" type="button" data-view="scanner">Scanner une plante</button></div>
+      </section>
+
+      <section id="view-carte" class="view" hidden aria-labelledby="carte-title">
+        <div class="page-intro"><p class="eyebrow">SUR LES SENTIERS DE CORSE</p><h1 id="carte-title">La carte <em>des trouvailles.</em></h1><p>Retrouvez les plantes découvertes et les lieux où vous les avez croisées.</p></div>
+        <div class="map-layout"><div id="map" role="application" aria-label="Carte interactive des découvertes en Corse"></div><div class="map-side"><span class="map-side-kicker">VOTRE PARCOURS</span><strong id="map-count">0 lieu enregistré</strong><p>Les découvertes avec une position GPS apparaissent sur la carte.</p><div class="map-legend"><span></span> Mes découvertes</div></div></div>
+        <p id="map-message" class="map-message" role="status"></p>
+      </section>
+    </main>
+  </div>
+
+  <!-- La navigation principale comporte volontairement trois boutons seulement. -->
+  <nav class="bottom-nav" aria-label="Navigation principale">
+    <button type="button" data-view="plantes" aria-label="Plantes, ouvrir l'herbier"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4C10 4 5 7 5 14a6 6 0 0 0 6 6c7 0 10-5 9-16ZM4 20c3-4 7-7 12-10"/></svg><span>Plantes</span></button>
+    <button type="button" data-view="scanner" class="nav-scan is-active" aria-label="Scanner, photographier une plante" aria-current="page"><span class="nav-scan-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V6a2 2 0 0 1 2-2h3m6 0h3a2 2 0 0 1 2 2v3M4 15v3a2 2 0 0 0 2 2h3m6 0h3a2 2 0 0 0 2-2v-3M8 12h8"/></svg></span><span>Scanner</span></button>
+    <button type="button" data-view="carte" aria-label="Carte, voir les découvertes sur la carte"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2V6Zm6-2v14m6-12v14m3-10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg><span>Carte</span></button>
+  </nav>
+
+  <div id="scan-dialog" class="dialog-backdrop" hidden>
+    <section class="dialog scan-dialog" role="dialog" aria-modal="true" aria-labelledby="scan-dialog-title">
+      <button class="icon-close" type="button" data-close aria-label="Fermer">×</button>
+      <p class="eyebrow">NOUVELLE DÉCOUVERTE</p><h2 id="scan-dialog-title">Une plante <em>à rencontrer.</em></h2>
+      <p>Photographiez une plante ou choisissez une image depuis votre appareil.</p>
+      <div id="scanner-live" class="scanner-live" hidden>
+        <video id="scanner-video" autoplay muted playsinline aria-label="Vue en direct de la caméra"></video>
+        <div class="scanner-sight" aria-hidden="true"></div>
+        <p class="scanner-hint">Cadrez la plante, puis lancez l'identification.</p>
+        <button id="identify-live" class="button button-primary" type="button">Identifier la plante</button>
+      </div>
+      <div class="upload-actions"><button id="take-photo" class="upload-choice" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v13H4V7Zm8 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg><strong>Activer la caméra</strong><span>Flux vidéo en direct</span></button><button id="import-photo" class="upload-choice" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4Zm3 12 4-4 3 3 2-2 3 3M8 9h.01"/></svg><strong>Importer une image</strong><span>Ouvrir la galerie</span></button></div>
+      <input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+      <input id="gallery-input" type="file" accept="image/*" hidden>
+      <div id="preview-area" class="preview-area" hidden><img id="photo-preview" alt="Aperçu de votre photo"><div class="preview-controls"><span class="preview-label">Votre photo</span><p>Cette photo sera conservée sur votre carte de découverte.</p><div id="scan-progress" class="scan-progress" hidden><span class="spinner" aria-hidden="true"></span><span id="scan-status">Analyse de la plante en cours…</span></div><button id="retry-button" class="button button-outline" type="button" hidden>Réessayer l’analyse</button></div></div>
+      <p id="scan-error" class="form-message" role="alert"></p>
+    </section>
+  </div>
+
+  <div id="result-dialog" class="dialog-backdrop encounter-backdrop" hidden>
+    <section class="encounter" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <div class="encounter-stage" id="encounter-stage">
+        <video id="encounter-video" autoplay muted playsinline aria-label="Caméra en direct pendant la rencontre"></video>
+        <img id="encounter-still" alt="Photo utilisée pour identifier la plante" hidden>
+        <!-- Canvas Three.js transparent devant la caméra. En WebXR, le navigateur fournit la caméra AR. -->
+        <div id="encounter-canvas" class="encounter-canvas" aria-label="Berger en trois dimensions, glissez pour le tourner"></div>
+        <div id="guide-avatar" class="encounter-character-state">
+          <img id="berger-fallback" src="images/berger.svg" alt="Illustration du berger" hidden>
+          <span class="guide-mouth" aria-hidden="true"></span>
+        </div>
+        <div id="berger-loading" class="encounter-loading" role="status"><span class="spinner" aria-hidden="true"></span> Chargement du berger…</div>
+      </div>
+      <div class="encounter-hud">
+        <div class="encounter-top"><span class="encounter-kicker">✳ RENCONTRE DANS LE MAQUIS</span><button id="exit-encounter" class="encounter-close" type="button">Quitter <span aria-hidden="true">×</span></button></div>
+        <div class="encounter-caption"><span id="encounter-mode">Placement visuel</span><span>Glissez sur le berger pour le tourner</span></div>
+        <div class="encounter-controls"><label for="encounter-distance">Distance</label><input id="encounter-distance" type="range" min="2" max="4.5" step="0.1" value="3" aria-label="Distance visuelle du berger"><button id="encounter-ar" type="button" hidden>Ancrage AR</button></div>
+        <div class="encounter-panel">
+          <div class="encounter-plant"><img id="result-photo" alt="Photo de la plante identifiée"><div><span id="result-confidence" class="result-confidence"></span><h2 id="result-title"></h2><p id="result-latin" class="latin-name"></p><p id="result-summary"></p><small id="result-location"></small><time id="result-date" hidden></time></div></div>
+          <div class="guide-content"><p class="guide-label">LE BERGER VOUS RACONTE</p><p id="guide-text" aria-live="polite"></p><button id="replay-speech" class="replay-button" type="button">🔊 Réécouter</button></div>
+          <div class="question-block"><p>Que voulez-vous savoir ?</p><div id="question-buttons" class="question-buttons"></div><div class="voice-row"><button id="microphone-button" class="mic-button" type="button" aria-label="Poser une question orale">🎙 <span>Poser une question</span></button><span id="voice-status">Voix de démonstration du navigateur</span></div><p id="conversation-question" class="conversation-question" hidden></p><p id="conversation-error" class="form-message" role="alert"></p></div>
+          <p id="encounter-error" class="form-message" role="alert"></p>
+          <button id="save-encounter" class="button button-primary encounter-save" type="button">📷 Photographier et enregistrer</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="auth-dialog" class="dialog-backdrop" hidden>
+    <section class="dialog auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <button id="auth-close" class="icon-close" type="button" data-close aria-label="Fermer" hidden>×</button>
+      <p class="eyebrow">VOTRE HERBIER PERSONNEL</p><h2 id="auth-title">Le maquis, <em>à vous.</em></h2>
+      <p id="auth-intro">Connectez-vous pour garder vos découvertes privées sur tous vos appareils.</p>
+      <div class="auth-tabs"><button id="tab-login" type="button" class="is-selected">Connexion</button><button id="tab-signup" type="button">Inscription</button></div>
+      <form id="auth-form"><label for="auth-email">Adresse e-mail</label><input id="auth-email" type="email" autocomplete="email" required placeholder="vous@exemple.fr"><label for="auth-password">Mot de passe</label><input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="Votre mot de passe"><button id="auth-submit" class="button button-primary" type="submit">Se connecter</button></form>
+      <p id="auth-message" class="form-message" role="alert"></p>
+      <button id="demo-button" class="demo-button" type="button">Essayer le mode démo sur cet appareil <span aria-hidden="true">→</span></button>
+      <p class="auth-note">Le mode démo utilise une reconnaissance simulée et reste séparé de votre compte.</p>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js" onerror="window.MAQUIS_CONFIG_MISSING=true"></script>
+  <script src="data/plantes.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

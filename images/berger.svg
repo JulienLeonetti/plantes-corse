@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Berger corse illustré">
+  <!-- Personnage temporaire : ce SVG pourra être remplacé par un modèle 3D. -->
+  <defs><clipPath id="circle"><circle cx="120" cy="120" r="120"/></clipPath><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#e9e4c9"/><stop offset="1" stop-color="#a7b795"/></linearGradient></defs>
+  <g clip-path="url(#circle)">
+    <path fill="url(#bg)" d="M0 0h240v240H0z"/>
+    <path d="M0 195q45-45 92-24t148-20v89H0" fill="#758d70"/>
+    <path d="M29 244q11-70 72-79l18 15 20-15q65 7 76 79" fill="#3b5942"/>
+    <path d="M101 165v22q18 17 38 0v-22" fill="#c9946f"/>
+    <path d="M93 177q-22 4-28 24l34 39h87l21-39q-5-17-25-22l-28 27-33-18-22 18z" fill="#e8dcc5"/>
+    <path d="M75 75q-2 56 8 82 11 28 37 29 27 0 39-28 10-24 6-83" fill="#c9946f"/>
+    <path d="M72 87q-8-15 6-32 16-20 48-19 31 2 43 24 6 12-1 32-5-8-7-22-16 11-37 9-21 0-37-8-7 13-15 16z" fill="#343a2d"/>
+    <path d="M74 111q-9-7-9 6 1 16 15 18m86-24q10-7 9 6-1 16-15 18" fill="#bd8866"/>
+    <path d="M90 119q10-7 20 0m20 0q10-7 20 0" fill="none" stroke="#554037" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="101" cy="124" r="2.6" fill="#302d25"/><circle cx="140" cy="124" r="2.6" fill="#302d25"/>
+    <path d="M120 128l-5 18q4 4 10 0" fill="none" stroke="#a87559" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M98 155q8-9 22-5 14-4 23 5-5 23-23 23-18 0-22-23z" fill="#574334"/>
+    <path d="M108 157q12 5 24 0" fill="none" stroke="#e0ac87" stroke-width="3" stroke-linecap="round"/>
+    <path d="M89 149q-10-4-14-15 3 17 15 24m61-9q10-4 14-15-3 17-15 24" fill="#574334"/>
+    <path d="M53 57q27-35 68-38 44 3 67 39l-4 15q-58 23-126 0z" fill="#484d38"/>
+    <path d="M44 66q74 19 152 0 5 10-5 15-71 24-141 0-10-5-6-15z" fill="#333c2d"/>
+    <path d="M73 52q48 14 96 0" fill="none" stroke="#a98b59" stroke-width="5"/>
+    <path d="M20 237q18-41 39-59m161 59q-18-41-39-59" fill="none" stroke="#294332" stroke-width="8"/>
+  </g>
+</svg>
