@@ -151,3 +151,35 @@ body.is-immersive .bottom-nav{display:none}
 @media(max-width:650px){.scan-dialog,.scan-dialog.dialog{width:100vw;height:100dvh;max-height:none;border-radius:0;padding:0}.scanner-sight{width:70vw;height:39dvh;top:43%}.scanner-hint{top:calc(43% + 19.5dvh + 14px)}.scanner-shutter{bottom:calc(18px + env(safe-area-inset-bottom))}.scan-dialog:has(.scanner-live:not([hidden])) .scanner-bottom{bottom:calc(104px + env(safe-area-inset-bottom));max-height:28dvh}.scan-dialog .upload-choice svg{display:block}.encounter-panel{max-height:43dvh}.plant-card{grid-template-columns:112px minmax(0,1fr)}.plant-card-body{min-width:0}.plant-card h2,.plant-card-description,.plant-card-location{overflow-wrap:anywhere}.map-layout{overflow:visible}#map{border-radius:16px 16px 0 0}.map-side{border-radius:0 0 16px 16px}}
 @media(max-width:390px){.app-shell{padding-left:16px;padding-right:16px}.bottom-nav{width:calc(100% - 20px)}.header-caption{display:none}.hero-actions{flex-wrap:wrap}.scanner-header{padding-left:16px;padding-right:16px}.scanner-bottom{padding-left:16px;padding-right:16px}.scan-dialog .upload-choice{min-width:0}.scan-dialog .upload-choice strong{overflow-wrap:anywhere}.encounter-panel{padding-left:15px;padding-right:15px}}
 @media(prefers-reduced-motion:reduce){.scanner-sight i{animation:none}}
+
+/* Sur ordinateur, la caméra et le berger restent visibles à côté de la photo importée. */
+@media(min-width:900px){
+  .encounter-backdrop.has-imported-photo:not(.is-xr){background:#142219}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,450px);gap:20px;max-width:1600px;height:100dvh;margin:auto;padding:20px;background:#142219}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-stage{position:relative;inset:auto;min-width:0;min-height:0;height:100%;border-radius:22px;background:#26372b}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) #encounter-still{object-fit:contain}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-stage::after{background:linear-gradient(180deg,rgba(16,30,20,.18),transparent 30%,transparent 75%,rgba(13,27,17,.16))}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-canvas{top:12%;height:68%}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-hud{position:relative;inset:auto;min-width:0;min-height:0;overflow:hidden}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-top{padding:2px 0 0}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-caption{margin:12px 0 16px;align-self:stretch}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-spacer{display:none}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-ar-button{margin:0 0 12px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel{width:100%;max-height:none;min-height:0;flex:1;align-self:stretch;overflow-y:auto;padding:24px;border-radius:22px;box-shadow:0 14px 45px rgba(9,24,13,.24)}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-plant{grid-template-columns:clamp(112px,10vw,145px) minmax(0,1fr);gap:15px;padding-bottom:18px;border-bottom:1px solid #dfe4db}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-plant img{width:100%;height:160px;object-fit:contain;background:#e8ede2}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-plant h2{font-size:28px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-plant .latin-name{font-size:12px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-plant p:not(.latin-name){font-size:13px;line-height:1.5}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-plant small{font-size:11px;line-height:1.4}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .guide-content{margin-top:20px;padding:17px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .guide-label{font-size:10px;margin-bottom:8px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .guide-content>p:nth-child(2){font-size:13px;line-height:1.55}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .question-block{padding-top:20px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .question-block>p{font-size:13px;margin-bottom:11px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .question-buttons{gap:8px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .question-buttons button{font-size:12px;padding:9px 12px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .voice-row{margin-top:17px;padding-top:15px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-panel .voice-row>span{font-size:11px}
+  .encounter-backdrop.has-imported-photo:not(.is-xr) .encounter-save{width:100%;margin-top:20px;min-height:52px}
+}

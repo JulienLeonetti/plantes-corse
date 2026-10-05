@@ -45,14 +45,18 @@ async function identify(request, env, cors) {
   url.searchParams.set('nb-results', '5');
   // Laisser le rejet de Pl@ntNet actif : aucun paramètre no-reject=true.
   const upstream = await fetch(url, { method: 'POST', body: outgoing });
-  if (upstream.status === 404) return json({ recognized: false, error: 'Aucune plante détectée' }, 200, cors);
+  if (upstream.status === 404) {
+    const details = await upstream.text();
+    if (/species not found/i.test(details)) return json({ recognized: false, error: 'Aucune plante détectée' }, 200, cors);
+    return json({ error: 'Pl@ntNet a renvoyé une erreur 404 inattendue. Vérifiez la configuration de l’API.' }, 502, cors);
+  }
   if (!upstream.ok) return json({ error: upstream.status === 429 ? 'Quota Pl@ntNet atteint. Réessayez plus tard.' : 'Identification Pl@ntNet indisponible.' }, upstream.status === 429 ? 429 : 502, cors);
   const data = await upstream.json();
   const first = Array.isArray(data.results) && data.results[0];
-  if (!data.bestMatch || !first || !first.species) return json({ recognized: false, error: 'Aucune plante détectée' }, 200, cors);
+  if (!first || !first.species) return json({ recognized: false, error: 'Aucune plante détectée' }, 200, cors);
   const scientificName = String(first.species.scientificNameWithoutAuthor || first.species.scientificName || '').trim();
   if (!scientificName) return json({ recognized: false, error: 'Aucune plante détectée' }, 200, cors);
-  return json({ recognized: true, bestMatch: data.bestMatch, results: data.results,
+  return json({ recognized: true, bestMatch: data.bestMatch || scientificName, results: data.results,
     scientificName, commonName: first.species.commonNames && first.species.commonNames[0] || scientificName,
     score: Number(first.score) }, 200, cors);
 }

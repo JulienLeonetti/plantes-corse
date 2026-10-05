@@ -15,11 +15,11 @@
   let cameraStream = null, encounter3d = null, encounterSequence = 0, saveInProgress = false;
 
   // Le flux vidéo reste ouvert pendant l'analyse ET pendant la rencontre.
-  async function startCamera() {
+  async function startCamera(silent = false) {
     if (cameraStream) return;
     const token = scanToken;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      scanError('Caméra en direct indisponible ici. Utilisez une photo ou ouvrez le site en HTTPS.');
+      if (!silent) scanError('Caméra en direct indisponible ici. Utilisez une photo ou ouvrez le site en HTTPS.');
       return;
     }
     el('take-photo').disabled = true;
@@ -35,7 +35,7 @@
       el('scan-error').textContent = ''; el('scan-error-card').hidden = true;
     } catch (_) {
       if (cameraStream) stopCamera();
-      if (token === scanToken && !photo && !scanDialog.hidden) scanError('Caméra refusée ou indisponible. Importez une photo, ou utilisez la caméra native.');
+      if (!silent && token === scanToken && !photo && !scanDialog.hidden) scanError('Caméra refusée ou indisponible. Importez une photo, ou utilisez la caméra native.');
       el('take-photo').querySelector('strong').textContent = 'Caméra native';
     } finally { el('take-photo').disabled = false; }
   }
@@ -62,7 +62,7 @@
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     if (!hasUsablePixels(context, canvas.width, canvas.height)) return Promise.reject(new Error('Image trop sombre ou vide. Cadrez la plante et réessayez.'));
     return new Promise((resolve, reject) => canvas.toBlob(blob => {
-      if (blob) resolve({ blob, dataUrl: canvas.toDataURL('image/jpeg', 0.9) });
+      if (blob) resolve({ blob, dataUrl: canvas.toDataURL('image/jpeg', 0.9), source: 'camera' });
       else reject(new Error('Capture impossible.'));
     }, 'image/jpeg', 0.9));
   }
@@ -254,7 +254,7 @@
           URL.revokeObjectURL(url);
           if (!blob) { reject(new Error('Compression de la photo impossible.')); return; }
           const reader = new FileReader();
-          reader.onload = () => resolve({ blob, dataUrl: reader.result });
+          reader.onload = () => resolve({ blob, dataUrl: reader.result, source: 'upload' });
           reader.onerror = () => reject(new Error('Lecture de la photo impossible.'));
           reader.readAsDataURL(blob);
         }, 'image/jpeg', 0.9);
@@ -302,13 +302,26 @@
   async function workerRequest(route, body, multipart) {
     if (!cfg.workerUrl) throw new Error('API de reconnaissance non configurée');
     if (!db || !user) throw new Error('Connectez-vous pour utiliser ce service.');
-    const session = await db.auth.getSession();
+    let session;
+    try { session = await db.auth.getSession(); }
+    catch (_) { throw new Error('Connexion à votre compte indisponible. Vérifiez votre connexion Internet puis reconnectez-vous.'); }
+    if (session.error) throw new Error('Session Supabase indisponible : ' + session.error.message);
     if (!session.data.session) throw new Error('Session expirée. Reconnectez-vous.');
     const headers = { Authorization: 'Bearer ' + session.data.session.access_token };
     if (!multipart) headers['Content-Type'] = 'application/json';
-    const response = await fetch(cfg.workerUrl.replace(/\/$/, '') + route, {
-      method: 'POST', headers, body: multipart ? body : JSON.stringify(body)
-    });
+    const apiUrl = cfg.workerUrl.replace(/\/$/, '');
+    let response;
+    try {
+      response = await fetch(apiUrl + route, {
+        method: 'POST', headers, body: multipart ? body : JSON.stringify(body)
+      });
+    } catch (_) {
+      let health;
+      try { health = await fetch(apiUrl + '/health', { cache: 'no-store' }); }
+      catch (_) { throw new Error('API injoignable depuis ce navigateur. Vérifiez votre connexion Internet et réessayez.'); }
+      if (!health.ok) throw new Error('API inaccessible depuis cette adresse (' + location.origin + ').');
+      throw new Error('Envoi vers l’API bloqué par le navigateur. Réessayez après avoir désactivé un bloqueur ou un VPN.');
+    }
     if (!response.ok) {
       const details = await response.json().catch(() => ({}));
       throw new Error(details.error || 'Service indisponible.');
@@ -342,13 +355,15 @@
       if (token !== scanToken || mode !== originalMode || (mode === 'account' && (!user || user.id !== uid))) return;
       console.info('[Pl@ntNet] Résultat', { scientificName: found.scientificName || null, score: found.score ?? null,
         recognized: found.recognized, bestMatch: found.bestMatch || null });
-      if (found.recognized === false || !found.bestMatch || !Array.isArray(found.results) || !found.results.length) {
+      if (found.recognized === false || !Array.isArray(found.results) || !found.results.length) {
         console.info('[Pl@ntNet] Rejet : aucune plante détectée');
-        throw new Error('Aucune plante reconnue. Rapprochez-vous et cadrez une feuille ou une fleur.');
+        throw new Error('L’API de reconnaissance n’a renvoyé aucun résultat exploitable. Le Worker en ligne masque encore la cause exacte ; la photo seule ne permet pas de conclure.');
       }
       if (mode === 'demo') {
         scanStatus('Recherche de votre position…');
         const position = await getPosition();
+        if (token !== scanToken) return;
+        if (photo.source === 'upload' && !cameraStream) await startCamera(true);
         if (token !== scanToken) return;
         const row = { id: crypto.randomUUID(), plantId: found.plantId, plant: localPlant(found.plantId),
           photoUrl: photo.dataUrl, date: new Date().toISOString(), position, score: null, demo: true };
@@ -358,16 +373,22 @@
       const best = found.results[0];
       const score = Number(best && best.score);
       const scientificName = String(best && best.species && (best.species.scientificNameWithoutAuthor || best.species.scientificName) || '').trim();
-      if (!scientificName || !Number.isFinite(score) || score < 0.30) {
-        console.info('[Pl@ntNet] Rejet : nom ou score insuffisant', { scientificName, score });
-        throw new Error('Aucune plante reconnue. Rapprochez-vous et cadrez une feuille ou une fleur.');
+      if (!scientificName || !Number.isFinite(score) || score < 0) {
+        console.info('[Pl@ntNet] Rejet : résultat incomplet', { scientificName, score });
+        throw new Error('Pl@ntNet a renvoyé un résultat incomplet. Réessayez avec une photo plus nette.');
       }
-      const match = await db.from('plants').select('*').eq('scientific_name', scientificName).maybeSingle();
+      // Calamintha nepeta est un synonyme botanique documenté de Clinopodium nepeta.
+      // La fiche affichée et enregistrée vient toujours de la base Supabase.
+      const catalogName = scientificName === 'Calamintha nepeta' ? 'Clinopodium nepeta' : scientificName;
+      const match = await db.from('plants').select('*').eq('scientific_name', catalogName).maybeSingle();
       if (match.error) throw new Error('Catalogue corse indisponible : ' + match.error.message);
       console.info('[Catalogue corse] Correspondance', { scientificName, found: Boolean(match.data), name: match.data && match.data.common_name });
-      if (!match.data) throw new Error('Cette plante n’est pas encore répertoriée dans le catalogue corse.');
+      if (!match.data) throw new Error('Pl@ntNet suggère « ' + scientificName + ' » (' + Math.round(score * 100) + ' %), mais cette espèce est absente de votre base. Aucune identification n’a été enregistrée.');
+      if (score < 0.30) throw new Error('Pl@ntNet suggère « ' + scientificName + ' », présent dans votre base, mais avec seulement ' + Math.round(score * 100) + ' % de confiance. Une autre photo est nécessaire pour éviter une fausse identification.');
       scanStatus('Recherche de votre position…');
       const position = await getPosition();
+      if (token !== scanToken || mode !== 'account' || !user || user.id !== uid) return;
+      if (photo.source === 'upload' && !cameraStream) await startCamera(true);
       if (token !== scanToken || mode !== 'account' || !user || user.id !== uid) return;
       const row = { id: crypto.randomUUID(), plant: match.data, photoUrl: photo.dataUrl,
         date: new Date().toISOString(), position, score, pending: true };
@@ -385,10 +406,10 @@
     el('encounter-error').textContent = '';
     button.textContent = 'Enregistrement…';
     try {
-      // Le cliché final vient du flux encore ouvert ; l'image analysée sert de secours
-      // quand la caméra native ou WebXR ne permet pas de lire une nouvelle trame.
-      const finalPhoto = cameraStream && !(encounter3d && encounter3d.isAR)
-        ? await captureLivePhoto().catch(() => photo) : photo;
+      // Une importation conserve la photo choisie ; un scan en direct prend un nouveau cliché.
+      const finalPhoto = photo && photo.source === 'upload' ? photo :
+        (cameraStream && !(encounter3d && encounter3d.isAR)
+          ? await captureLivePhoto().catch(() => photo) : photo);
       if (!finalPhoto || !finalPhoto.blob) throw new Error('Photo indisponible.');
       const row = current;
       if (mode === 'demo') {
@@ -429,7 +450,7 @@
       saveInProgress = false;
       button.disabled = false;
       el('exit-encounter').disabled = false;
-      button.textContent = '📷 Photographier et enregistrer';
+      button.textContent = photo && photo.source === 'upload' ? 'Enregistrer cette photo' : '📷 Photographier et enregistrer';
     }
   }
 
@@ -440,11 +461,11 @@
   }
   function showResult(row, note) {
     current = row;
+    resultDialog.classList.toggle('has-imported-photo', photo && photo.source === 'upload');
     el('result-photo').src = row.photoUrl;
     el('result-title').textContent = row.plant.common_name;
     el('result-latin').textContent = row.plant.scientific_name;
     el('result-summary').textContent = row.plant.summary;
-    el('result-confidence').textContent = row.score == null ? 'Identification simulée · mode démo' : 'Confiance Pl@ntNet : ' + Math.round(row.score * 100) + ' % · ' + row.plant.corsica_status;
     el('result-date').textContent = formatDate(row.date);
     el('result-location').textContent = formatPosition(row.position) + ' · ' + note;
     el('conversation-error').textContent = ''; el('conversation-question').hidden = true;
@@ -462,6 +483,7 @@
     el('encounter-mode').textContent = 'Superposition 3D · sans ancrage réel';
     el('encounter-ar').hidden = true;
     el('save-encounter').disabled = false;
+    el('save-encounter').textContent = photo && photo.source === 'upload' ? 'Enregistrer cette photo' : '📷 Photographier et enregistrer';
     const encounterVideo = el('encounter-video');
     encounterVideo.srcObject = cameraStream;
     encounterVideo.hidden = !cameraStream;

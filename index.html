@@ -2,6 +2,13 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
+  <script>
+    if (location.hostname === 'localhost') {
+      const url = new URL(location.href);
+      url.hostname = '127.0.0.1';
+      location.replace(url.href);
+    }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f7f5ee">
   <meta name="description" content="Découvrez les plantes de Corse, gardez vos trouvailles et retrouvez-les sur la carte.">
@@ -142,7 +149,7 @@
         <div class="encounter-spacer" aria-hidden="true"></div>
         <button id="encounter-ar" class="encounter-ar-button" type="button" hidden>Activer AR</button>
         <div class="encounter-panel">
-          <div class="encounter-plant"><img id="result-photo" alt="Photo de la plante identifiée"><div><span id="result-confidence" class="result-confidence"></span><h2 id="result-title"></h2><p id="result-latin" class="latin-name"></p><p id="result-summary"></p><small id="result-location"></small><time id="result-date" hidden></time></div></div>
+          <div class="encounter-plant"><img id="result-photo" alt="Photo de la plante identifiée"><div><h2 id="result-title"></h2><p id="result-latin" class="latin-name"></p><p id="result-summary"></p><small id="result-location"></small><time id="result-date" hidden></time></div></div>
           <div class="guide-content"><p class="guide-label">LE BERGER VOUS RACONTE</p><p id="guide-text" aria-live="polite"></p><button id="replay-speech" class="replay-button" type="button">🔊 Réécouter</button></div>
           <div class="question-block"><p>Que voulez-vous savoir ?</p><div id="question-buttons" class="question-buttons"></div><div class="voice-row"><button id="microphone-button" class="mic-button" type="button" aria-label="Poser une question orale">🎙 <span>Poser une question</span></button><span id="voice-status">Voix de démonstration du navigateur</span></div><p id="conversation-question" class="conversation-question" hidden></p><p id="conversation-error" class="form-message" role="alert"></p></div>
           <p id="encounter-error" class="form-message" role="alert"></p>
